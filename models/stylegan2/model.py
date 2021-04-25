@@ -126,7 +126,7 @@ class EqualConv2d(nn.Module):
             self.bias = None
 
     def forward(self, input):
-        out = myconv2d(
+        out = F.conv2d(
             input,
             self.weight * self.scale,
             bias=self.bias,
@@ -164,8 +164,8 @@ class EqualLinear(nn.Module):
 
     def forward(self, input):
         if self.activation:
-            out = F.linear(input, self.weight * self.scale)
-            out = fused_leaky_relu(out, self.bias * self.lr_mul)
+            out = F.linear(input, self.weight * self.scale, bias=self.bias * self.lr_mul)
+            out = F.leaky_relu(input, negative_slope=0.2)#fused_leaky_relu(out, self.bias * self.lr_mul)
 
         else:
             out = F.linear(
@@ -278,13 +278,13 @@ class ModulatedConv2d(nn.Module):
             input = self.blur(input)
             _, _, height, width = input.shape
             input = input.view(1, batch * in_channel, height, width)
-            out = myconv2d(input, weight2, padding=0, stride=2, groups=batch)
+            out = F.conv2d(input, weight2, padding=0, stride=2, groups=batch)
             _, _, height, width = out.shape
             out = out.view(batch, self.out_channel, height, width)
 
         else:
             input = input.view(1, batch * in_channel, height, width)
-            out = myconv2d(input, weight2, padding=self.padding, groups=batch)
+            out = F.conv2d(input, weight2, padding=self.padding, groups=batch)
             _, _, height, width = out.shape
             out = out.view(batch, self.out_channel, height, width)
 
@@ -344,7 +344,7 @@ class StyledConv(nn.Module):
         self.noise = NoiseInjection()
         # self.bias = nn.Parameter(torch.zeros(1, out_channel, 1, 1))
         # self.activate = ScaledLeakyReLU(0.2)
-        self.activate = FusedLeakyReLU(out_channel)
+        self.activate = nn.LeakyReLU(negative_slope=0.2)#FusedLeakyReLU(out_channel)
 
     def forward(self, input, style, noise=None):
         out = self.conv(input, style)
@@ -601,7 +601,7 @@ class ConvLayer(nn.Sequential):
 
         if activate:
             if bias:
-                layers.append(FusedLeakyReLU(out_channel))
+                layers.append(nn.LeakyReLU(negative_slope=0.2))
 
             else:
                 layers.append(ScaledLeakyReLU(0.2))

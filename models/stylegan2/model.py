@@ -6,10 +6,13 @@ from torch.nn import functional as F
 
 from models.stylegan2.op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
 
+
 # Vanilla Convolution
 def myconv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
     batch_size, in_channels, in_h, in_w = input.shape
     out_channels, in_channels, kh, kw =  weight.shape
+    out_w = ((in_w + 2 * padding - dilation * (kw - 1) - 1) // stride) + 1
+    out_h = ((in_h + 2 * padding - dilation * (kh - 1) - 1) // stride) + 1
 
     unfold = torch.nn.Unfold(kernel_size=(kh, kw), dilation=dilation, padding=padding, stride=stride)
     inp_unf = unfold(input)

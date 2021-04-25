@@ -16,7 +16,6 @@ fused = load(
 
 
 class FusedLeakyReLUFunctionBackward(Function):
-    @staticmethod
     def forward(ctx, grad_output, out, negative_slope, scale):
         ctx.save_for_backward(out)
         ctx.negative_slope = negative_slope
@@ -37,7 +36,6 @@ class FusedLeakyReLUFunctionBackward(Function):
 
         return grad_input, grad_bias
 
-    @staticmethod
     def backward(ctx, gradgrad_input, gradgrad_bias):
         out, = ctx.saved_tensors
         gradgrad_out = fused.fused_bias_act(
@@ -48,7 +46,6 @@ class FusedLeakyReLUFunctionBackward(Function):
 
 
 class FusedLeakyReLUFunction(Function):
-    @staticmethod
     def forward(ctx, input, bias, negative_slope, scale):
         empty = input.new_empty(0)
         out = fused.fused_bias_act(input, bias, empty, 3, 0, negative_slope, scale)
@@ -58,7 +55,6 @@ class FusedLeakyReLUFunction(Function):
 
         return out
 
-    @staticmethod
     def backward(ctx, grad_output):
         out, = ctx.saved_tensors
 

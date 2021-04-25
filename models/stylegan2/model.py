@@ -6,6 +6,21 @@ from torch.nn import functional as F
 
 from models.stylegan2.op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
 
+# Vanilla Convolution
+def myconv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
+    batch_size, in_channels, in_h, in_w = input.shape
+    out_channels, in_channels, kh, kw =  weight.shape
+
+    unfold = torch.nn.Unfold(kernel_size=(kh, kw), dilation=dilation, padding=padding, stride=stride)
+    inp_unf = unfold(input)
+
+    if bias is None:
+        out_unf = inp_unf.transpose(1, 2).matmul(weight.view(weight.size(0), -1).t()).transpose(1, 2)
+    else:
+        out_unf = (inp_unf.transpose(1, 2).matmul(w_) + bias).transpose(1, 2)
+    out = out_unf.view(batch_size, out_channels, out_h, out_w)
+    return out
+
 
 class PixelNorm(nn.Module):
     def __init__(self):
@@ -108,7 +123,7 @@ class EqualConv2d(nn.Module):
             self.bias = None
 
     def forward(self, input):
-        out = F.conv2d(
+        out = myconv2d(
             input,
             self.weight * self.scale,
             bias=self.bias,
@@ -260,13 +275,13 @@ class ModulatedConv2d(nn.Module):
             input = self.blur(input)
             _, _, height, width = input.shape
             input = input.view(1, batch * in_channel, height, width)
-            out = F.conv2d(input, weight2, padding=0, stride=2, groups=batch)
+            out = myconv2d(input, weight2, padding=0, stride=2, groups=batch)
             _, _, height, width = out.shape
             out = out.view(batch, self.out_channel, height, width)
 
         else:
             input = input.view(1, batch * in_channel, height, width)
-            out = F.conv2d(input, weight2, padding=self.padding, groups=batch)
+            out = myconv2d(input, weight2, padding=self.padding, groups=batch)
             _, _, height, width = out.shape
             out = out.view(batch, self.out_channel, height, width)
 

@@ -7,24 +7,6 @@ from torch.nn import functional as F
 from models.stylegan2.op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
 
 
-# Vanilla Convolution
-def myconv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
-    batch_size, in_channels, in_h, in_w = input.shape
-    out_channels, in_channels, kh, kw =  weight.shape
-    out_w = ((in_w + 2 * padding - dilation * (kw - 1) - 1) // stride) + 1
-    out_h = ((in_h + 2 * padding - dilation * (kh - 1) - 1) // stride) + 1
-
-    unfold = torch.nn.Unfold(kernel_size=(kh, kw), dilation=dilation, padding=padding, stride=stride)
-    inp_unf = unfold(input)
-
-    if bias is None:
-        out_unf = inp_unf.transpose(1, 2).matmul(weight.view(weight.size(0), -1).t()).transpose(1, 2)
-    else:
-        out_unf = (inp_unf.transpose(1, 2).matmul(w_) + bias).transpose(1, 2)
-    out = out_unf.view(batch_size, out_channels, out_h, out_w)
-    return out
-
-
 class PixelNorm(nn.Module):
     def __init__(self):
         super().__init__()
@@ -164,8 +146,8 @@ class EqualLinear(nn.Module):
 
     def forward(self, input):
         if self.activation:
-            out = F.linear(input, self.weight * self.scale, bias=self.bias * self.lr_mul)
-            out = F.leaky_relu(input, negative_slope=0.2)#fused_leaky_relu(out, self.bias * self.lr_mul)
+            out = F.linear(input, self.weight * self.scale)
+            out = fused_leaky_relu(out, self.bias * self.lr_mul)
 
         else:
             out = F.linear(
@@ -344,7 +326,7 @@ class StyledConv(nn.Module):
         self.noise = NoiseInjection()
         # self.bias = nn.Parameter(torch.zeros(1, out_channel, 1, 1))
         # self.activate = ScaledLeakyReLU(0.2)
-        self.activate = nn.LeakyReLU(negative_slope=0.2)#FusedLeakyReLU(out_channel)
+        self.activate = FusedLeakyReLU(out_channel)
 
     def forward(self, input, style, noise=None):
         out = self.conv(input, style)
@@ -601,7 +583,7 @@ class ConvLayer(nn.Sequential):
 
         if activate:
             if bias:
-                layers.append(nn.LeakyReLU(negative_slope=0.2))
+                layers.append(FusedLeakyReLU(out_channel))
 
             else:
                 layers.append(ScaledLeakyReLU(0.2))

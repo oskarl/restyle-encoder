@@ -237,7 +237,7 @@ class ModulatedConv2d(nn.Module):
 
         if self.demodulate:
             demod = torch.rsqrt(weight2.pow(2).sum([2, 3, 4]) + 1e-8)
-            weigh2t = weight2 * demod.view(batch, self.out_channel, 1, 1, 1)
+            weight2 = weight2 * demod.view(batch, self.out_channel, 1, 1, 1)
 
         weight2 = weight2.view(
             batch * self.out_channel, in_channel, self.kernel_size, self.kernel_size
